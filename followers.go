@@ -5,98 +5,47 @@ import (
 	"net/url"
 )
 
-type FollowingResponse struct {
-	Data Data `json:"data"`
-}
-
-type Data struct {
-	User User `json:"user"`
-}
-
-type User struct {
-	Result UserResult `json:"result"`
-}
-
-type UserResult struct {
-	Timeline UserTimeline `json:"timeline"`
-}
-
-type UserTimeline struct {
-	Timeline InnerTimeline `json:"timeline"`
-}
-
-type InnerTimeline struct {
-	Instructions []Instruction `json:"instructions"`
-}
-
-type Instruction struct {
-	Type       string  `json:"type"`
-	Direction  string  `json:"direction,omitempty"`
-	Entries    []Entry `json:"entries,omitempty"`
-	Value      string  `json:"value,omitempty"`
-	CursorType string  `json:"cursorType,omitempty"`
-}
-
-type Entry struct {
-	EntryId   string  `json:"entryId"`
-	SortIndex string  `json:"sortIndex"`
-	Content   Content `json:"content"`
-}
-
-type Content struct {
-	EntryType       string           `json:"entryType"`
-	ItemType        string           `json:"itemType,omitempty"`
-	UserResults     *UserResults     `json:"user_results,omitempty"`
-	UserDisplayType string           `json:"userDisplayType,omitempty"`
-	ClientEventInfo *ClientEventInfo `json:"clientEventInfo,omitempty"`
-}
-
-type UserResults struct {
-	Result UserProfile `json:"result"`
-}
-
-type UserProfile struct {
-	ID             string         `json:"id"`
-	RestID         string         `json:"rest_id"`
-	Legacy         Legacy         `json:"legacy"`
-	Professional   Professional   `json:"professional,omitempty"`
-	TipjarSettings TipjarSettings `json:"tipjar_settings,omitempty"`
+type Response struct {
+	Data struct {
+		User struct {
+			Result struct {
+				Timeline struct {
+					Timeline struct {
+						Instructions []struct {
+							Entries []struct {
+								Content struct {
+									ItemContent struct {
+										UserResults struct {
+											Result struct {
+												Legacy Legacy `json:"legacy"`
+											} `json:"result"`
+										} `json:"user_results"`
+									} `json:"itemContent"`
+								} `json:"content"`
+							} `json:"entries"`
+						} `json:"instructions"`
+					} `json:"timeline"`
+				} `json:"timeline"`
+			} `json:"result"`
+		} `json:"user"`
+	} `json:"data"`
 }
 
 type Legacy struct {
-	CanDM                bool   `json:"can_dm"`
-	Description          string `json:"description"`
-	Name                 string `json:"name"`
-	ScreenName           string `json:"screen_name"`
-	FollowersCount       int    `json:"followers_count"`
-	FriendsCount         int    `json:"friends_count"`
-	StatusesCount        int    `json:"statuses_count"`
-	ProfileImageURLHttps string `json:"profile_image_url_https"`
-	Verified             bool   `json:"verified"`
-	// Add more fields as necessary
-}
-
-type Professional struct {
-	RestID           string     `json:"rest_id"`
-	ProfessionalType string     `json:"professional_type"`
-	Category         []Category `json:"category,omitempty"`
-}
-
-type Category struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	IconName string `json:"icon_name"`
-}
-
-type TipjarSettings struct {
-	IsEnabled     bool   `json:"is_enabled,omitempty"`
-	CashAppHandle string `json:"cash_app_handle,omitempty"`
-	PatreonHandle string `json:"patreon_handle,omitempty"`
-}
-
-type ClientEventInfo struct {
-	Component string `json:"component"`
-	Element   string `json:"element"`
+	ScreenName      string `json:"screen_name"`
+	FollowersCount  int    `json:"followers_count"`
+	FriendsCount    int    `json:"friends_count"`
+	ListedCount     int    `json:"listed_count"`
+	CreatedAt       string `json:"created_at"`
+	FavouritesCount int    `json:"favourites_count"`
+	StatusesCount   int    `json:"statuses_count"`
+	MediaCount      int    `json:"media_count"`
+	ProfileImageUrl string `json:"profile_image_url_https"`
+	Description     string `json:"description"`
+	Location        string `json:"location"`
+	Url             string `json:"url"`
+	Protected       bool   `json:"protected"`
+	Verified        bool   `json:"verified"`
 }
 
 // FetchFollowers gets the list of followers for a given user, via the Twitter frontend GraphQL API.
@@ -126,7 +75,7 @@ func (s *Scraper) FetchFollowers(userID string, maxUsersNbr int, cursor string) 
 	query.Set("features", mapToJSONString(features))
 	req.URL.RawQuery = query.Encode()
 
-	var response FollowingResponse
+	var response Response
 	err = s.RequestAPI(req, &response)
 	if err != nil {
 		// Handle the error, for example, log it or return it to the caller
@@ -145,21 +94,19 @@ func (s *Scraper) FetchFollowers(userID string, maxUsersNbr int, cursor string) 
 	return legacies, nextCursor, nil
 }
 
-func (fr *FollowingResponse) parseFollowing() ([]*Legacy, string, error) {
+func (fr Response) parseFollowing() ([]*Legacy, string, error) {
 	var legacies []*Legacy
-	var nextCursor string
-
 	for _, instruction := range fr.Data.User.Result.Timeline.Timeline.Instructions {
-		if instruction.Type == "TimelineAddEntries" {
-			for _, entry := range instruction.Entries {
-				if entry.Content.EntryType == "User" {
-					legacies = append(legacies, &entry.Content.UserResults.Result.Legacy)
-				}
-			}
-		} else if instruction.Type == "TimelinePinEntry" {
-			nextCursor = instruction.Value
+		for _, entry := range instruction.Entries {
+			// Append the address of Legacy struct to the slice
+			legacies = append(legacies, &entry.Content.ItemContent.UserResults.Result.Legacy)
 		}
 	}
+
+	// Assuming the next cursor is part of your response, you need to extract it here.
+	// This is a placeholder for where you would extract the cursor from your response.
+	// Adjust this according to your actual JSON structure.
+	nextCursor := "" // Placeholder: Extract the actual cursor from the response
 
 	return legacies, nextCursor, nil
 }
