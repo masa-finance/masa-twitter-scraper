@@ -96,10 +96,15 @@ func (s *Scraper) FetchFollowers(userID string, maxUsersNbr int, cursor string) 
 
 func (fr Response) parseFollowing() ([]*Legacy, string, error) {
 	var legacies []*Legacy
+
+	log.Println("Starting to parse following...") // Log the start of the parsing process
+
 	for _, instruction := range fr.Data.User.Result.Timeline.Timeline.Instructions {
+		log.Printf("Processing instruction with %d entries\n", len(instruction.Entries)) // Log the number of entries in the current instruction
 		for _, entry := range instruction.Entries {
 			// Append the address of Legacy struct to the slice
 			legacies = append(legacies, &entry.Content.ItemContent.UserResults.Result.Legacy)
+			log.Printf("Added legacy for user: %s\n", entry.Content.ItemContent.UserResults.Result.Legacy.ScreenName) // Log the screen name of the user being added
 		}
 	}
 
@@ -107,6 +112,6 @@ func (fr Response) parseFollowing() ([]*Legacy, string, error) {
 	// This is a placeholder for where you would extract the cursor from your response.
 	// Adjust this according to your actual JSON structure.
 	nextCursor := "" // Placeholder: Extract the actual cursor from the response
+	log.Println("Parsing complete. No next cursor extracted.") // Log completion and note about the cursor
 
-	return legacies, nextCursor, nil
-}
+	return legacies, nextCurs
