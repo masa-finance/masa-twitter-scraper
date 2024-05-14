@@ -32,20 +32,55 @@ type Response struct {
 }
 
 type Legacy struct {
-	ScreenName      string `json:"screen_name"`
-	FollowersCount  int    `json:"followers_count"`
-	FriendsCount    int    `json:"friends_count"`
-	ListedCount     int    `json:"listed_count"`
-	CreatedAt       string `json:"created_at"`
-	FavouritesCount int    `json:"favourites_count"`
-	StatusesCount   int    `json:"statuses_count"`
-	MediaCount      int    `json:"media_count"`
-	ProfileImageUrl string `json:"profile_image_url_https"`
-	Description     string `json:"description"`
-	Location        string `json:"location"`
-	Url             string `json:"url"`
-	Protected       bool   `json:"protected"`
-	Verified        bool   `json:"verified"`
+	CanDM                *bool     `json:"can_dm"`
+	CanMediaTag          *bool     `json:"can_media_tag"`
+	CreatedAt            *string   `json:"created_at"`
+	DefaultProfile       *bool     `json:"default_profile"`
+	DefaultProfileImage  *bool     `json:"default_profile_image"`
+	Description          *string   `json:"description"`
+	Entities             *Entities `json:"entities"`
+	FastFollowersCount   *int      `json:"fast_followers_count"`
+	FavouritesCount      *int      `json:"favourites_count"`
+	FollowersCount       *int      `json:"followers_count"`
+	FriendsCount         *int      `json:"friends_count"`
+	HasCustomTimelines   *bool     `json:"has_custom_timelines"`
+	IsTranslator         *bool     `json:"is_translator"`
+	ListedCount          *int      `json:"listed_count"`
+	Location             *string   `json:"location"`
+	MediaCount           *int      `json:"media_count"`
+	Name                 *string   `json:"name"`
+	NormalFollowersCount *int      `json:"normal_followers_count"`
+	PinnedTweetIdsStr    *[]string `json:"pinned_tweet_ids_str"`
+	PossiblySensitive    *bool     `json:"possibly_sensitive"`
+	ProfileBannerUrl     *string   `json:"profile_banner_url"`
+	ProfileImageUrlHttps *string   `json:"profile_image_url_https"`
+	ScreenName           *string   `json:"screen_name"`
+	StatusesCount        *int      `json:"statuses_count"`
+	TranslatorType       *string   `json:"translator_type"`
+	Url                  *string   `json:"url"`
+	Verified             *bool     `json:"verified"`
+	WantRetweets         *bool     `json:"want_retweets"`
+	WithheldInCountries  *[]string `json:"withheld_in_countries"`
+}
+
+type Entities struct {
+	Description Description `json:"description"`
+	Url         Url         `json:"url"`
+}
+
+type Description struct {
+	Urls []UrlInfo `json:"urls"`
+}
+
+type Url struct {
+	Urls []UrlInfo `json:"urls"`
+}
+
+type UrlInfo struct {
+	DisplayUrl  string `json:"display_url"`
+	ExpandedUrl string `json:"expanded_url"`
+	Url         string `json:"url"`
+	Indices     []int  `json:"indices"`
 }
 
 // FetchFollowers gets the list of followers for a given user, via the Twitter frontend GraphQL API.
