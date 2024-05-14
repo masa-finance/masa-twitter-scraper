@@ -99,7 +99,7 @@ type ClientEventInfo struct {
 }
 
 // FetchFollowers gets the list of followers for a given user, via the Twitter frontend GraphQL API.
-func (s *Scraper) FetchFollowers(userID string, maxUsersNbr int, cursor string) ([]*UserProfile, string, error) {
+func (s *Scraper) FetchFollowers(userID string, maxUsersNbr int, cursor string) ([]*Legacy, string, error) {
 	if maxUsersNbr > 200 {
 		maxUsersNbr = 200
 	}
@@ -131,29 +131,28 @@ func (s *Scraper) FetchFollowers(userID string, maxUsersNbr int, cursor string) 
 		return nil, "", err
 	}
 
-	profiles, nextCursor, err := response.parseFollowing() // Capture the error value as well
+	legacies, nextCursor, err := response.parseFollowing() // Capture the error value as well
 	if err != nil {
 		return nil, "", err // Handle the error appropriately
 	}
-	return profiles, nextCursor, nil
+	return legacies, nextCursor, nil
 }
 
-func (fr *FollowingResponse) parseFollowing() ([]*UserProfile, string, error) {
-	var profiles []*UserProfile
+func (fr *FollowingResponse) parseFollowing() ([]*Legacy, string, error) {
+	var legacies []*Legacy
 	var nextCursor string
 
-	// Example parsing logic (adjust according to actual response structure)
 	for _, instruction := range fr.Data.User.Result.Timeline.Timeline.Instructions {
 		if instruction.Type == "TimelineAddEntries" {
 			for _, entry := range instruction.Entries {
 				if entry.Content.EntryType == "User" {
-					profiles = append(profiles, &entry.Content.UserResults.Result)
+					legacies = append(legacies, &entry.Content.UserResults.Result.Legacy)
 				}
 			}
 		} else if instruction.Type == "TimelinePinEntry" {
-			nextCursor = instruction.Value // Assuming this is how the cursor is provided
+			nextCursor = instruction.Value
 		}
 	}
 
-	return profiles, nextCursor, nil
+	return legacies, nextCursor, nil
 }
