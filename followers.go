@@ -32,35 +32,35 @@ type Response struct {
 }
 
 type Legacy struct {
-	CanDM                *bool     `json:"can_dm"`
-	CanMediaTag          *bool     `json:"can_media_tag"`
-	CreatedAt            *string   `json:"created_at"`
-	DefaultProfile       *bool     `json:"default_profile"`
-	DefaultProfileImage  *bool     `json:"default_profile_image"`
-	Description          *string   `json:"description"`
-	Entities             *Entities `json:"entities"`
-	FastFollowersCount   *int      `json:"fast_followers_count"`
-	FavouritesCount      *int      `json:"favourites_count"`
-	FollowersCount       *int      `json:"followers_count"`
-	FriendsCount         *int      `json:"friends_count"`
-	HasCustomTimelines   *bool     `json:"has_custom_timelines"`
-	IsTranslator         *bool     `json:"is_translator"`
-	ListedCount          *int      `json:"listed_count"`
-	Location             *string   `json:"location"`
-	MediaCount           *int      `json:"media_count"`
-	Name                 *string   `json:"name"`
-	NormalFollowersCount *int      `json:"normal_followers_count"`
-	PinnedTweetIdsStr    *[]string `json:"pinned_tweet_ids_str"`
-	PossiblySensitive    *bool     `json:"possibly_sensitive"`
-	ProfileBannerUrl     *string   `json:"profile_banner_url"`
-	ProfileImageUrlHttps *string   `json:"profile_image_url_https"`
-	ScreenName           *string   `json:"screen_name"`
-	StatusesCount        *int      `json:"statuses_count"`
-	TranslatorType       *string   `json:"translator_type"`
-	Url                  *string   `json:"url"`
-	Verified             *bool     `json:"verified"`
-	WantRetweets         *bool     `json:"want_retweets"`
-	WithheldInCountries  *[]string `json:"withheld_in_countries"`
+	CanDM                bool     `json:"can_dm"`
+	CanMediaTag          bool     `json:"can_media_tag"`
+	CreatedAt            string   `json:"created_at"`
+	DefaultProfile       bool     `json:"default_profile"`
+	DefaultProfileImage  bool     `json:"default_profile_image"`
+	Description          string   `json:"description"`
+	Entities             Entities `json:"entities"`
+	FastFollowersCount   int      `json:"fast_followers_count"`
+	FavouritesCount      int      `json:"favourites_count"`
+	FollowersCount       int      `json:"followers_count"`
+	FriendsCount         int      `json:"friends_count"`
+	HasCustomTimelines   bool     `json:"has_custom_timelines"`
+	IsTranslator         bool     `json:"is_translator"`
+	ListedCount          int      `json:"listed_count"`
+	Location             string   `json:"location"`
+	MediaCount           int      `json:"media_count"`
+	Name                 string   `json:"name"`
+	NormalFollowersCount int      `json:"normal_followers_count"`
+	PinnedTweetIdsStr    []string `json:"pinned_tweet_ids_str"`
+	PossiblySensitive    bool     `json:"possibly_sensitive"`
+	ProfileBannerUrl     string   `json:"profile_banner_url"`
+	ProfileImageUrlHttps string   `json:"profile_image_url_https"`
+	ScreenName           string   `json:"screen_name"`
+	StatusesCount        int      `json:"statuses_count"`
+	TranslatorType       string   `json:"translator_type"`
+	Url                  string   `json:"url"`
+	Verified             bool     `json:"verified"`
+	WantRetweets         bool     `json:"want_retweets"`
+	WithheldInCountries  []string `json:"withheld_in_countries"`
 }
 
 type Entities struct {
@@ -84,7 +84,7 @@ type UrlInfo struct {
 }
 
 // FetchFollowers gets the list of followers for a given user, via the Twitter frontend GraphQL API.
-func (s *Scraper) FetchFollowers(username string, maxUsersNbr int, cursor string) ([]*Legacy, string, error) {
+func (s *Scraper) FetchFollowers(username string, maxUsersNbr int, cursor string) ([]Legacy, string, error) {
 	if maxUsersNbr > 200 {
 		maxUsersNbr = 200
 	}
@@ -136,14 +136,14 @@ func (s *Scraper) FetchFollowers(username string, maxUsersNbr int, cursor string
 	return legacies, nextCursor, nil
 }
 
-func (fr Response) parseFollowing() ([]*Legacy, string, error) {
-	var legacies []*Legacy
+func (fr Response) parseFollowing() ([]Legacy, string, error) {
+	var legacies []Legacy
 	log.Println("Starting to parse following...") // Log the start of the parsing process
 
 	for _, instruction := range fr.Data.User.Result.Timeline.Timeline.Instructions {
 		for _, entry := range instruction.Entries {
 			// Append the address of Legacy struct to the slice
-			legacies = append(legacies, &entry.Content.ItemContent.UserResults.Result.Legacy)
+			legacies = append(legacies, entry.Content.ItemContent.UserResults.Result.Legacy)
 		}
 	}
 
