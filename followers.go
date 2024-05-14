@@ -49,17 +49,17 @@ type Legacy struct {
 }
 
 // FetchFollowers gets the list of followers for a given user, via the Twitter frontend GraphQL API.
-func (s *Scraper) FetchFollowers(userID string, maxUsersNbr int, cursor string) ([]*Legacy, string, error) {
+func (s *Scraper) FetchFollowers(username string, maxUsersNbr int, cursor string) ([]*Legacy, string, error) {
 	if maxUsersNbr > 200 {
 		maxUsersNbr = 200
 	}
 
 	// Use GetProfile to get the userID from the username
-	// profile, err := s.GetProfile(username)
-	// if err != nil {
-	// 	return nil, "", err
-	// }
-	// userID := profile.UserID
+	profile, err := s.GetProfile(username)
+	if err != nil {
+		return nil, "", err
+	}
+	userID := profile.UserID
 
 	req, err := s.newRequest("GET", "https://twitter.com/i/api/graphql/o1YfmoGa-hb8Z6yQhoIBhg/Followers")
 	if err != nil {
