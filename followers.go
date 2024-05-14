@@ -1,6 +1,7 @@
 package twitterscraper
 
 import (
+	"log"
 	"net/url"
 )
 
@@ -125,16 +126,22 @@ func (s *Scraper) FetchFollowers(userID string, maxUsersNbr int, cursor string) 
 	query.Set("features", mapToJSONString(features))
 	req.URL.RawQuery = query.Encode()
 
-	var response FollowingResponse // You might need to adjust the response struct if the followers response differs
+	var response FollowingResponse
 	err = s.RequestAPI(req, &response)
 	if err != nil {
+		// Handle the error, for example, log it or return it to the caller
+		log.Printf("Error making API request: %v", err)
 		return nil, "", err
 	}
 
-	legacies, nextCursor, err := response.parseFollowing() // Capture the error value as well
+	legacies, nextCursor, err := response.parseFollowing()
 	if err != nil {
-		return nil, "", err // Handle the error appropriately
+		// Handle the parsing error
+		log.Printf("Error parsing following response: %v", err)
+		return nil, "", err
 	}
+
+	// If err is nil here, it means both the API request and parsing were successful
 	return legacies, nextCursor, nil
 }
 
