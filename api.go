@@ -53,25 +53,29 @@ func (s *Scraper) RequestAPI(req *http.Request, target interface{}) error {
 	}
 	defer resp.Body.Close()
 
-	content, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
+	if resp.ContentLength > 0 { // Check if there's content to read
+		content, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Response Body: %s", string(content))
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("response status %s: %s", resp.Status, content)
+		}
+
+		if target != nil {
+			err = json.Unmarshal(content, target)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		log.Printf("Empty response body")
 	}
 
-	log.Printf("Response Body: %s", string(content))
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("response status %s: %s", resp.Status, content)
-	}
-
-	if resp.Header.Get("X-Rate-Limit-Remaining") == "0" {
-		s.guestToken = ""
-	}
-
-	if target == nil {
-		return nil
-	}
-	return json.Unmarshal(content, target)
+	return nil
 }
 
 // GetGuestToken from Twitter API
