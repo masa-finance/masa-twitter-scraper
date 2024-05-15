@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io" // For Go versions before 1.16, use ioutil.ReadAll
-	"log"
 	"net/http"
 	"time"
 )
@@ -57,8 +56,6 @@ func (s *Scraper) RequestAPI(req *http.Request, target interface{}) error {
 	if err != nil {
 		return err
 	}
-
-	log.Printf("Response Body: %s", string(content))
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("response status %s: %s", resp.Status, content)
