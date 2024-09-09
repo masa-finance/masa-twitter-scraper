@@ -16,40 +16,6 @@ import (
 	"time"
 )
 
-const (
-	loginURL          = "https://api.twitter.com/1.1/onboarding/task.json"
-	logoutURL         = "https://api.twitter.com/1.1/account/logout.json"
-	oAuthURL          = "https://api.twitter.com/oauth2/token"
-	bearerToken2      = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
-	appConsumerKey    = "3nVuSoBZnx6U4vzUxf5w"
-	appConsumerSecret = "Bcs59EFbbsdF6Sl9Ng71smgStWEGwXXKSjYvPVt7qys"
-)
-
-type (
-	flow struct {
-		Errors []struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
-		FlowToken string `json:"flow_token"`
-		Status    string `json:"status"`
-		Subtasks  []struct {
-			SubtaskID   string `json:"subtask_id"`
-			OpenAccount struct {
-				OAuthToken       string `json:"oauth_token"`
-				OAuthTokenSecret string `json:"oauth_token_secret"`
-			} `json:"open_account"`
-		} `json:"subtasks"`
-	}
-
-	verifyCredentials struct {
-		Errors []struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-)
-
 func (s *Scraper) getAccessToken(consumerKey, consumerSecret string) (string, error) {
 	req, err := http.NewRequest("POST", oAuthURL, strings.NewReader("grant_type=client_credentials"))
 	if err != nil {
@@ -82,7 +48,7 @@ func (s *Scraper) getFlow(data map[string]interface{}) (*flow, error) {
 	headers := http.Header{
 		"Authorization":             []string{"Bearer " + s.bearerToken},
 		"Content-Type":              []string{"application/json"},
-		"User-Agent":                []string{"TwitterAndroid/99"},
+		"User-Agent":                []string{GetRandomUserAgent()},
 		"X-Guest-Token":             []string{s.guestToken},
 		"X-Twitter-Auth-Type":       []string{"OAuth2Client"},
 		"X-Twitter-Active-User":     []string{"yes"},
@@ -143,7 +109,7 @@ func (s *Scraper) getFlowToken(data map[string]interface{}) (string, error) {
 func (s *Scraper) IsLoggedIn() bool {
 	s.isLogged = true
 	s.setBearerToken(bearerToken2)
-	req, err := http.NewRequest("GET", "https://api.twitter.com/1.1/account/verify_credentials.json", nil)
+	req, err := http.NewRequest("GET", verifyCredentialsURL, nil)
 	if err != nil {
 		return false
 	}

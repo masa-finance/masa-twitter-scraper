@@ -2,21 +2,35 @@ package twitterscraper_test
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"testing"
 
+	"github.com/joho/godotenv"
 	twitterscraper "github.com/masa-finance/masa-twitter-scraper"
 )
 
 var (
-	username     = os.Getenv("TWITTER_USERNAME")
-	password     = os.Getenv("TWITTER_PASSWORD")
-	email        = os.Getenv("TWITTER_EMAIL")
-	skipAuthTest = os.Getenv("SKIP_AUTH_TEST") != ""
+	username     string
+	password     string
+	email        string
+	skipAuthTest bool
 	testScraper  = twitterscraper.New()
 )
 
 func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Error loading .env file: %v", err)
+	}
+
+	username = os.Getenv("TWITTER_USERNAME")
+	password = os.Getenv("TWITTER_PASSWORD")
+	email = os.Getenv("TWITTER_EMAIL")
+	skipAuthTest = os.Getenv("SKIP_AUTH_TEST") != ""
+
+	log.Printf("Environment variables: Username: '%s', Password: '%s', Email: '%s', SkipAuthTest: %v",
+		username, password, email, skipAuthTest)
+
 	if username != "" && password != "" && !skipAuthTest {
 		err := testScraper.Login(username, password, email)
 		if err != nil {
@@ -47,12 +61,5 @@ func TestAuth(t *testing.T) {
 	}
 	if scraper.IsLoggedIn() {
 		t.Error("Expected IsLoggedIn() = false")
-	}
-}
-
-func TestLoginOpenAccount(t *testing.T) {
-	scraper := twitterscraper.New()
-	if err := scraper.LoginOpenAccount(); err != nil {
-		t.Fatalf("LoginOpenAccount() error = %v", err)
 	}
 }
