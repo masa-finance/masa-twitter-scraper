@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	loginURL          = "https://api.twitter.com/1.1/onboarding/task.json"
-	logoutURL         = "https://api.twitter.com/1.1/account/logout.json"
-	oAuthURL          = "https://api.twitter.com/oauth2/token"
+	loginURL          = "https://api.x.com/1.1/onboarding/task.json"
+	logoutURL         = "https://api.x.com/1.1/account/logout.json"
+	oAuthURL          = "https://api.x.com/oauth2/token"
 	bearerToken2      = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 	appConsumerKey    = "3nVuSoBZnx6U4vzUxf5w"
 	appConsumerSecret = "Bcs59EFbbsdF6Sl9Ng71smgStWEGwXXKSjYvPVt7qys"
@@ -82,7 +82,7 @@ func (s *Scraper) getFlow(data map[string]interface{}) (*flow, error) {
 	headers := http.Header{
 		"Authorization":             []string{"Bearer " + s.bearerToken},
 		"Content-Type":              []string{"application/json"},
-		"User-Agent":                []string{"TwitterAndroid/99"},
+		"User-Agent":                []string{"Twitter for Android/10.10.0 (Android 13; Pixel 6; google; en_US)"},
 		"X-Guest-Token":             []string{s.guestToken},
 		"X-Twitter-Auth-Type":       []string{"OAuth2Client"},
 		"X-Twitter-Active-User":     []string{"yes"},
@@ -105,11 +105,19 @@ func (s *Scraper) getFlow(data map[string]interface{}) (*flow, error) {
 	}
 	defer resp.Body.Close()
 
-	var info flow
-	err = json.NewDecoder(resp.Body).Decode(&info)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
+
+	var info flow
+	err = json.Unmarshal(body, &info)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling JSON: %w, body: %s", err, string(body))
+	}
+
+	// Log the full response for debugging
+	fmt.Printf("Full response: %s\n", string(body))
 
 	return &info, nil
 }
@@ -143,7 +151,7 @@ func (s *Scraper) getFlowToken(data map[string]interface{}) (string, error) {
 func (s *Scraper) IsLoggedIn() bool {
 	s.isLogged = true
 	s.setBearerToken(bearerToken2)
-	req, err := http.NewRequest("GET", "https://api.twitter.com/1.1/account/verify_credentials.json", nil)
+	req, err := http.NewRequest("GET", "https://api.x.com/1.1/account/verify_credentials.json", nil)
 	if err != nil {
 		return false
 	}
@@ -192,7 +200,7 @@ func (s *Scraper) Login(credentials ...string) error {
 	}
 	flowToken, err := s.getFlowToken(data)
 	if err != nil {
-		return err
+		return fmt.Errorf("login flow start error: %w", err)
 	}
 
 	// flow instrumentation step
@@ -207,7 +215,7 @@ func (s *Scraper) Login(credentials ...string) error {
 	}
 	flowToken, err = s.getFlowToken(data)
 	if err != nil {
-		return err
+		return fmt.Errorf("login instrumentation error: %w", err)
 	}
 
 	// flow username step
@@ -230,7 +238,7 @@ func (s *Scraper) Login(credentials ...string) error {
 	}
 	flowToken, err = s.getFlowToken(data)
 	if err != nil {
-		return err
+		return fmt.Errorf("login username step error: %w", err)
 	}
 
 	// flow password step
@@ -245,7 +253,7 @@ func (s *Scraper) Login(credentials ...string) error {
 	}
 	flowToken, err = s.getFlowToken(data)
 	if err != nil {
-		return err
+		return fmt.Errorf("login password step error: %w", err)
 	}
 
 	// flow duplication check
@@ -260,6 +268,13 @@ func (s *Scraper) Login(credentials ...string) error {
 	}
 	flowToken, err = s.getFlowToken(data)
 	if err != nil {
+		// Log the full response
+		fmt.Printf("Login error response: %+v\n", err)
+
+		if strings.Contains(err.Error(), "DenyLoginSubtask") {
+			return fmt.Errorf("login denied by Twitter: %w", err)
+		}
+
 		var confirmationSubtask string
 		for _, subtask := range []string{"LoginAcid", "LoginTwoFactorAuthChallenge"} {
 			if strings.Contains(err.Error(), subtask) {
@@ -283,10 +298,10 @@ func (s *Scraper) Login(credentials ...string) error {
 			}
 			_, err = s.getFlowToken(data)
 			if err != nil {
-				return err
+				return fmt.Errorf("confirmation flow error: %w", err)
 			}
 		} else {
-			return err
+			return fmt.Errorf("unexpected login error: %w", err)
 		}
 	}
 
@@ -299,13 +314,13 @@ func (s *Scraper) Login(credentials ...string) error {
 func (s *Scraper) LoginOpenAccount() error {
 	accessToken, err := s.getAccessToken(appConsumerKey, appConsumerSecret)
 	if err != nil {
-		return err
+		return fmt.Errorf("get access token error: %w", err)
 	}
 	s.setBearerToken(accessToken)
 
 	err = s.GetGuestToken()
 	if err != nil {
-		return err
+		return fmt.Errorf("get guest token error: %w", err)
 	}
 
 	// flow start
@@ -320,7 +335,7 @@ func (s *Scraper) LoginOpenAccount() error {
 	}
 	flowToken, err := s.getFlowToken(data)
 	if err != nil {
-		return err
+		return fmt.Errorf("open account flow start error: %w", err)
 	}
 
 	// flow next link
@@ -334,7 +349,7 @@ func (s *Scraper) LoginOpenAccount() error {
 	}
 	info, err := s.getFlow(data)
 	if err != nil {
-		return err
+		return fmt.Errorf("open account next link error: %w", err)
 	}
 
 	if info.Subtasks != nil && len(info.Subtasks) > 0 {
@@ -342,14 +357,14 @@ func (s *Scraper) LoginOpenAccount() error {
 			s.oAuthToken = info.Subtasks[0].OpenAccount.OAuthToken
 			s.oAuthSecret = info.Subtasks[0].OpenAccount.OAuthTokenSecret
 			if s.oAuthToken == "" || s.oAuthSecret == "" {
-				return fmt.Errorf("auth error: %v", "Token or Secret is empty")
+				return fmt.Errorf("auth error: Token or Secret is empty")
 			}
 			s.isLogged = true
 			s.isOpenAccount = true
 			return nil
 		}
 	}
-	return fmt.Errorf("auth error: %v", "OpenAccount")
+	return fmt.Errorf("auth error: OpenAccount subtask not found")
 }
 
 // Logout is reset session

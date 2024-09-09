@@ -1,4 +1,5 @@
 module github.com/masa-finance/masa-twitter-scraper
+
 go 1.16
 
 require (
