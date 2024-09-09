@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	loginURL          = "https://api.x.com/1.1/onboarding/task.json"
-	logoutURL         = "https://api.x.com/1.1/account/logout.json"
-	oAuthURL          = "https://api.x.com/oauth2/token"
+	loginURL          = "https://api.twitter.com/1.1/onboarding/task.json"
+	logoutURL         = "https://api.twitter.com/1.1/account/logout.json"
+	oAuthURL          = "https://api.twitter.com/oauth2/token"
 	bearerToken2      = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 	appConsumerKey    = "3nVuSoBZnx6U4vzUxf5w"
 	appConsumerSecret = "Bcs59EFbbsdF6Sl9Ng71smgStWEGwXXKSjYvPVt7qys"

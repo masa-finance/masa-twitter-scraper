@@ -3,7 +3,7 @@ package twitterscraper
 import (
 	"encoding/json"
 	"fmt"
-	"io" // For Go versions before 1.16, use ioutil.ReadAll
+	"io"
 	"net/http"
 	"time"
 )
