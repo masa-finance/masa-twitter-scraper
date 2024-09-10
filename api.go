@@ -3,9 +3,11 @@ package twitterscraper
 import (
 	"encoding/json"
 	"fmt"
-	"io" // For Go versions before 1.16, use ioutil.ReadAll
+	"io"
 	"net/http"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const bearerToken string = "AAAAAAAAAAAAAAAAAAAAAPYXBAAAAAAACLXUNDekMxqa8h%2F40K4moUkGsoc%3DTYfbDKbT3jJPCEVnMYqilB28NHfOPqkca3qaAxGfsyKCs0wRbw"
@@ -14,50 +16,95 @@ const bearerToken string = "AAAAAAAAAAAAAAAAAAAAAPYXBAAAAAAACLXUNDekMxqa8h%2F40K
 func (s *Scraper) RequestAPI(req *http.Request, target interface{}) error {
 	s.wg.Wait()
 	if s.delay > 0 {
-		defer func() {
-			s.wg.Add(1)
-			go func() {
-				time.Sleep(time.Second * time.Duration(s.delay))
-				s.wg.Done()
-			}()
-		}()
+		defer s.delayRequest()
+	}
+
+	if err := s.prepareRequest(req); err != nil {
+		return err
+	}
+
+	resp, err := s.getHTTPClient().Do(req)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to execute request")
+		return err
+	}
+	defer resp.Body.Close()
+
+	return s.handleResponse(resp, target)
+}
+
+func (s *Scraper) delayRequest() {
+	s.wg.Add(1)
+	go func() {
+		time.Sleep(time.Second * time.Duration(s.delay))
+		s.wg.Done()
+	}()
+}
+
+func (s *Scraper) prepareRequest(req *http.Request) error {
+	if s.userAgent != "" {
+		req.Header.Set("User-Agent", s.userAgent)
+		logrus.WithFields(logrus.Fields{
+			"UserAgent": s.userAgent,
+			"URL":       req.URL.String(),
+			"Method":    req.Method,
+		}).Info("Setting User-Agent for request")
+	} else {
+		logrus.Warn("No User-Agent set for request")
 	}
 
 	if !s.isLogged {
-		if !s.IsGuestToken() || s.guestCreatedAt.Before(time.Now().Add(-time.Hour*3)) {
-			err := s.GetGuestToken()
-			if err != nil {
-				return err
-			}
+		if err := s.setGuestToken(req); err != nil {
+			return err
 		}
-		req.Header.Set("X-Guest-Token", s.guestToken)
 	}
 
+	s.setAuthorizationHeader(req)
+	s.setCSRFToken(req)
+
+	return nil
+}
+
+func (s *Scraper) setGuestToken(req *http.Request) error {
+	if !s.IsGuestToken() || s.guestCreatedAt.Before(time.Now().Add(-time.Hour*3)) {
+		if err := s.GetGuestToken(); err != nil {
+			logrus.WithError(err).Error("Failed to get guest token")
+			return err
+		}
+	}
+	req.Header.Set("X-Guest-Token", s.guestToken)
+	return nil
+}
+
+func (s *Scraper) setAuthorizationHeader(req *http.Request) {
 	if s.oAuthToken != "" && s.oAuthSecret != "" {
 		req.Header.Set("Authorization", s.sign(req.Method, req.URL))
 	} else {
 		req.Header.Set("Authorization", "Bearer "+s.bearerToken)
 	}
+}
 
-	for _, cookie := range s.client.Jar.Cookies(req.URL) {
+func (s *Scraper) setCSRFToken(req *http.Request) {
+	for _, cookie := range s.getHTTPClient().Jar.Cookies(req.URL) {
 		if cookie.Name == "ct0" {
 			req.Header.Set("X-CSRF-Token", cookie.Value)
 			break
 		}
 	}
+}
 
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
+func (s *Scraper) handleResponse(resp *http.Response, target interface{}) error {
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logrus.WithError(err).Error("Failed to read response body")
 		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		logrus.WithFields(logrus.Fields{
+			"status":  resp.Status,
+			"content": string(content),
+		}).Error("Unexpected response status")
 		return fmt.Errorf("response status %s: %s", resp.Status, content)
 	}
 
@@ -78,8 +125,11 @@ func (s *Scraper) GetGuestToken() error {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+s.bearerToken)
+	if s.userAgent != "" {
+		req.Header.Set("User-Agent", s.userAgent)
+	}
 
-	resp, err := s.client.Do(req)
+	resp, err := s.getHTTPClient().Do(req)
 	if err != nil {
 		return err
 	}

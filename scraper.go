@@ -29,6 +29,7 @@ type Scraper struct {
 	proxy          string
 	searchMode     SearchMode
 	wg             sync.WaitGroup
+	userAgent      string
 }
 
 // SearchMode type
@@ -50,16 +51,29 @@ const (
 // default http client timeout
 const DefaultClientTimeout = 10 * time.Second
 
+// SetUserAgent sets the user agent for the scraper
+func (s *Scraper) SetUserAgent(userAgent string) *Scraper {
+	s.userAgent = userAgent
+	return s
+}
+
+// getHTTPClient returns the configured http.Client
+func (s *Scraper) getHTTPClient() *http.Client {
+	return s.client
+}
+
 // New creates a Scraper object
 func New() *Scraper {
 	jar, _ := cookiejar.New(nil)
-	return &Scraper{
+	scraper := &Scraper{
 		bearerToken: bearerToken,
 		client: &http.Client{
 			Jar:     jar,
 			Timeout: DefaultClientTimeout,
 		},
 	}
+	scraper.SetUserAgent(GetRandomUserAgent())
+	return scraper
 }
 
 func (s *Scraper) setBearerToken(token string) {
