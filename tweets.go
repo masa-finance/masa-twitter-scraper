@@ -181,17 +181,17 @@ func (s *Scraper) GetTweet(id string) (*Tweet, error) {
 
 		var conversation threadedConversation
 
-		// Surprisingly, if bearerToken2 is not set, then animated GIFs are not
+		// Surprisingly, if BearerToken2 is not set, then animated GIFs are not
 		// present in the response for tweets with a GIF + a photo like this one:
 		// https://twitter.com/Twitter/status/1580661436132757506
 		curBearerToken := s.bearerToken
-		if curBearerToken != bearerToken2 {
-			s.setBearerToken(bearerToken2)
+		if curBearerToken != BearerToken2 {
+			s.setBearerToken(BearerToken2)
 		}
 
 		err = s.RequestAPI(req, &conversation)
 
-		if curBearerToken != bearerToken2 {
+		if curBearerToken != BearerToken2 {
 			s.setBearerToken(curBearerToken)
 		}
 

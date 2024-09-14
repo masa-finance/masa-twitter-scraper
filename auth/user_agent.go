@@ -1,4 +1,4 @@
-package twitterscraper
+package auth
 
 import (
 	"os"

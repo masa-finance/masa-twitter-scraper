@@ -1,23 +1,19 @@
 package twitterscraper
 
 import (
-	"crypto/tls"
-	"errors"
-	"net"
 	"net/http"
-	"net/http/cookiejar"
-	"net/url"
-	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/net/proxy"
+	"github.com/masa-finance/masa-twitter-scraper/auth"
+	"github.com/masa-finance/masa-twitter-scraper/httpwrap"
+	"github.com/masa-finance/masa-twitter-scraper/types"
 )
 
 // Scraper object
 type Scraper struct {
 	bearerToken    string
-	client         *http.Client
+	client         *httpwrap.Client
 	delay          int64
 	guestToken     string
 	guestCreatedAt time.Time
@@ -48,9 +44,6 @@ const (
 	SearchUsers
 )
 
-// default http client timeout
-const DefaultClientTimeout = 10 * time.Second
-
 // SetUserAgent sets the user agent for the scraper
 func (s *Scraper) SetUserAgent(userAgent string) *Scraper {
 	s.userAgent = userAgent
@@ -58,22 +51,22 @@ func (s *Scraper) SetUserAgent(userAgent string) *Scraper {
 }
 
 // getHTTPClient returns the configured http.Client
-func (s *Scraper) getHTTPClient() *http.Client {
+func (s *Scraper) getHTTPClient() *httpwrap.Client {
 	return s.client
 }
 
 // New creates a Scraper object
 func New() *Scraper {
-	jar, _ := cookiejar.New(nil)
 	scraper := &Scraper{
-		bearerToken: bearerToken,
-		client: &http.Client{
-			Jar:     jar,
-			Timeout: DefaultClientTimeout,
-		},
+		bearerToken: BearerToken,
+		client:      httpwrap.NewClient().WithJar().WithBearerToken(BearerToken),
 	}
-	scraper.SetUserAgent(GetRandomUserAgent())
+	scraper.SetUserAgent(auth.GetRandomUserAgent())
 	return scraper
+}
+
+func (s *Scraper) GetBearerToken() string {
+	return s.bearerToken
 }
 
 func (s *Scraper) setBearerToken(token string) {
@@ -106,7 +99,7 @@ func (s *Scraper) WithReplies(b bool) *Scraper {
 
 // client timeout
 func (s *Scraper) WithClientTimeout(timeout time.Duration) *Scraper {
-	s.client.Timeout = timeout
+	s.client.SetTimeout(timeout)
 	return s
 }
 
@@ -114,63 +107,24 @@ func (s *Scraper) WithClientTimeout(timeout time.Duration) *Scraper {
 // set http proxy in the format `http://HOST:PORT`
 // set socket proxy in the format `socks5://HOST:PORT`
 func (s *Scraper) SetProxy(proxyAddr string) error {
-	if proxyAddr == "" {
-		s.client.Transport = &http.Transport{
-			TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
-			DialContext: (&net.Dialer{
-				Timeout: s.client.Timeout,
-			}).DialContext,
-		}
-		s.proxy = ""
-		return nil
-	}
-	if strings.HasPrefix(proxyAddr, "http") {
-		urlproxy, err := url.Parse(proxyAddr)
-		if err != nil {
-			return err
-		}
-		s.client.Transport = &http.Transport{
-			Proxy:        http.ProxyURL(urlproxy),
-			TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
-			DialContext: (&net.Dialer{
-				Timeout: s.client.Timeout,
-			}).DialContext,
-		}
-		s.proxy = proxyAddr
-		return nil
-	}
-	if strings.HasPrefix(proxyAddr, "socks5") {
-		baseDialer := &net.Dialer{
-			Timeout:   s.client.Timeout,
-			KeepAlive: s.client.Timeout,
-		}
-		proxyURL, err := url.Parse(proxyAddr)
-		if err != nil {
-			panic(err)
-		}
+	return s.client.SetProxy(proxyAddr)
+}
 
-		// username password
-		username := proxyURL.User.Username()
-		password, _ := proxyURL.User.Password()
-
-		// ip and port
-		host := proxyURL.Hostname()
-		port := proxyURL.Port()
-
-		dialSocksProxy, err := proxy.SOCKS5("tcp", host+":"+port, &proxy.Auth{User: username, Password: password}, baseDialer)
-		if err != nil {
-			return errors.New("error creating socks5 proxy :" + err.Error())
-		}
-		if contextDialer, ok := dialSocksProxy.(proxy.ContextDialer); ok {
-			dialContext := contextDialer.DialContext
-			s.client.Transport = &http.Transport{
-				DialContext: dialContext,
-			}
-		} else {
-			return errors.New("failed type assertion to DialContext")
-		}
-		s.proxy = proxyAddr
-		return nil
+// IsLoggedIn check if scraper logged in
+func (s *Scraper) IsLoggedIn() bool {
+	s.isLogged = true
+	s.setBearerToken(BearerToken2)
+	req, err := http.NewRequest("GET", VerifyCredentialsURL, nil)
+	if err != nil {
+		return false
 	}
-	return errors.New("only support http(s) or socks5 protocol")
+	var verify types.VerifyCredentials
+	err = s.RequestAPI(req, &verify)
+	if err != nil || verify.Errors != nil {
+		s.isLogged = false
+		s.setBearerToken(BearerToken)
+	} else {
+		s.isLogged = true
+	}
+	return s.isLogged
 }

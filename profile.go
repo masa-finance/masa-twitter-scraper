@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/masa-finance/masa-twitter-scraper/types"
 )
 
 // Global cache for user IDs
@@ -42,9 +44,7 @@ type user struct {
 			Legacy legacyUser `json:"legacy"`
 		} `json:"user"`
 	} `json:"data"`
-	Errors []struct {
-		Message string `json:"message"`
-	} `json:"errors"`
+	Errors []types.Error `json:"errors"`
 }
 
 // GetProfile return parsed user profile.

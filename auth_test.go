@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/joho/godotenv"
+
 	twitterscraper "github.com/masa-finance/masa-twitter-scraper"
 )
 

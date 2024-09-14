@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-)
 
-const bearerToken string = "AAAAAAAAAAAAAAAAAAAAAPYXBAAAAAAACLXUNDekMxqa8h%2F40K4moUkGsoc%3DTYfbDKbT3jJPCEVnMYqilB28NHfOPqkca3qaAxGfsyKCs0wRbw"
+	"github.com/masa-finance/masa-twitter-scraper/httpwrap"
+)
 
 // RequestAPI get JSON from frontend API and decodes it
 func (s *Scraper) RequestAPI(req *http.Request, target interface{}) error {
@@ -85,7 +85,7 @@ func (s *Scraper) setAuthorizationHeader(req *http.Request) {
 }
 
 func (s *Scraper) setCSRFToken(req *http.Request) {
-	for _, cookie := range s.getHTTPClient().Jar.Cookies(req.URL) {
+	for _, cookie := range s.client.GetCookies(req.URL) {
 		if cookie.Name == "ct0" {
 			req.Header.Set("X-CSRF-Token", cookie.Value)
 			break
@@ -120,33 +120,16 @@ func (s *Scraper) handleResponse(resp *http.Response, target interface{}) error 
 
 // GetGuestToken from Twitter API
 func (s *Scraper) GetGuestToken() error {
-	req, err := http.NewRequest("POST", "https://api.twitter.com/1.1/guest/activate.json", nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+s.bearerToken)
+	header := httpwrap.NewHeader().WithBearerToken(s.bearerToken)
 	if s.userAgent != "" {
-		req.Header.Set("User-Agent", s.userAgent)
+		header.Add("User-Agent", s.userAgent)
 	}
 
-	resp, err := s.getHTTPClient().Do(req)
+	result, err := httpwrap.NewClient().Post("https://api.twitter.com/1.1/guest/activate.json", header, nil, nil)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("response status %s: %s", resp.Status, body)
-	}
-
-	var jsn map[string]interface{}
-	if err := json.Unmarshal(body, &jsn); err != nil {
-		return err
-	}
+	jsn := result.(map[string]interface{})
 	var ok bool
 	if s.guestToken, ok = jsn["guest_token"].(string); !ok {
 		return fmt.Errorf("guest_token not found")

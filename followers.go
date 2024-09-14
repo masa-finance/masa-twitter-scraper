@@ -146,7 +146,6 @@ func (fr Response) parseFollowing() ([]Legacy, string, error) {
 			legacies = append(legacies, entry.Content.ItemContent.UserResults.Result.Legacy)
 		}
 	}
-
 	// Assuming the next cursor is part of your response, you need to extract it here.
 	// This is a placeholder for where you would extract the cursor from your response.
 	// Adjust this according to your actual JSON structure.
