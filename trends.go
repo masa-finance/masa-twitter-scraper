@@ -21,7 +21,7 @@ func (s *Scraper) GetTrends() ([]string, error) {
 	if curBearerToken != BearerToken2 {
 		s.setBearerToken(BearerToken2)
 	}
-	err = s.RequestAPI(req, &jsn)
+	err = s.RequestAPI("GET", "https://api.twitter.com/2/guide.json", q, &jsn)
 	if curBearerToken != BearerToken2 {
 		s.setBearerToken(curBearerToken)
 	}

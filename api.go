@@ -1,10 +1,9 @@
 package twitterscraper
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -13,24 +12,39 @@ import (
 )
 
 // RequestAPI get JSON from frontend API and decodes it
-func (s *Scraper) RequestAPI(req *http.Request, target interface{}) error {
+func (s *Scraper) RequestAPI(method, requestURL string, query url.Values, target interface{}) error {
 	s.wg.Wait()
 	if s.delay > 0 {
 		defer s.delayRequest()
 	}
-
-	if err := s.prepareRequest(req); err != nil {
+	parsedURL, err := url.Parse(requestURL)
+	if err != nil {
+		logrus.WithError(err).Error("Invalid request URL")
 		return err
 	}
-
-	resp, err := s.getHTTPClient().Do(req)
+	csrfToken := s.getCSRFToken(parsedURL)
+	var signature string
+	if s.oAuthToken != "" && s.oAuthSecret != "" {
+		signature = s.sign(method, parsedURL)
+	}
+	header := httpwrap.NewHeader()
+	header.Prepare(s.userAgent, s.guestToken, s.bearerToken, csrfToken, signature, s.isLogged)
+	var limitCount int
+	switch method {
+	case http.MethodGet:
+		_, limitCount, err = s.getHTTPClient().Get(requestURL, query, header, target)
+	case http.MethodPost:
+		//this is only called by the logout function and will be fixed when the refactor is complete
+		_, limitCount, err = s.getHTTPClient().Post(requestURL, nil, header, target)
+	}
 	if err != nil {
 		logrus.WithError(err).Error("Failed to execute request")
 		return err
 	}
-	defer resp.Body.Close()
-
-	return s.handleResponse(resp, target)
+	if limitCount == 0 {
+		s.guestToken = ""
+	}
+	return nil
 }
 
 func (s *Scraper) delayRequest() {
@@ -41,81 +55,13 @@ func (s *Scraper) delayRequest() {
 	}()
 }
 
-func (s *Scraper) prepareRequest(req *http.Request) error {
-	if s.userAgent != "" {
-		req.Header.Set("User-Agent", s.userAgent)
-		logrus.WithFields(logrus.Fields{
-			"UserAgent": s.userAgent,
-			"URL":       req.URL.String(),
-			"Method":    req.Method,
-		}).Info("Setting User-Agent for request")
-	} else {
-		logrus.Warn("No User-Agent set for request")
-	}
-
-	if !s.isLogged {
-		if err := s.setGuestToken(req); err != nil {
-			return err
-		}
-	}
-
-	s.setAuthorizationHeader(req)
-	s.setCSRFToken(req)
-
-	return nil
-}
-
-func (s *Scraper) setGuestToken(req *http.Request) error {
-	if !s.IsGuestToken() || s.guestCreatedAt.Before(time.Now().Add(-time.Hour*3)) {
-		if err := s.GetGuestToken(); err != nil {
-			logrus.WithError(err).Error("Failed to get guest token")
-			return err
-		}
-	}
-	req.Header.Set("X-Guest-Token", s.guestToken)
-	return nil
-}
-
-func (s *Scraper) setAuthorizationHeader(req *http.Request) {
-	if s.oAuthToken != "" && s.oAuthSecret != "" {
-		req.Header.Set("Authorization", s.sign(req.Method, req.URL))
-	} else {
-		req.Header.Set("Authorization", "Bearer "+s.bearerToken)
-	}
-}
-
-func (s *Scraper) setCSRFToken(req *http.Request) {
-	for _, cookie := range s.client.GetCookies(req.URL) {
+func (s *Scraper) getCSRFToken(reqUrl *url.URL) string {
+	for _, cookie := range s.client.GetCookies(reqUrl) {
 		if cookie.Name == "ct0" {
-			req.Header.Set("X-CSRF-Token", cookie.Value)
-			break
+			return cookie.Value
 		}
 	}
-}
-
-func (s *Scraper) handleResponse(resp *http.Response, target interface{}) error {
-	content, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to read response body")
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		logrus.WithFields(logrus.Fields{
-			"status":  resp.Status,
-			"content": string(content),
-		}).Error("Unexpected response status")
-		return fmt.Errorf("response status %s: %s", resp.Status, content)
-	}
-
-	if resp.Header.Get("X-Rate-Limit-Remaining") == "0" {
-		s.guestToken = ""
-	}
-
-	if target == nil {
-		return nil
-	}
-	return json.Unmarshal(content, target)
+	return ""
 }
 
 // GetGuestToken from Twitter API
@@ -125,7 +71,7 @@ func (s *Scraper) GetGuestToken() error {
 		header.Add("User-Agent", s.userAgent)
 	}
 
-	result, err := httpwrap.NewClient().Post("https://api.twitter.com/1.1/guest/activate.json", header, nil, nil)
+	result, _, err := httpwrap.NewClient().Post("https://api.twitter.com/1.1/guest/activate.json", header, nil, nil)
 	if err != nil {
 		return err
 	}

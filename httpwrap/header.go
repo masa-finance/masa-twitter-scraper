@@ -33,3 +33,20 @@ func (h Header) WithBearerToken(token string) Header {
 	h["Authorization"] = "Bearer " + token
 	return h
 }
+
+func (h Header) Prepare(userAgent, guestToken, bearerToken, crfToken, signature string, isLogged bool) {
+	if userAgent != "" {
+		h["User-Agent"] = userAgent
+	}
+	if !isLogged {
+		h["X-Guest-Token"] = guestToken
+	}
+	if signature != "" {
+		h["Authorization"] = signature
+	} else {
+		h["Authorization"] = "Bearer " + bearerToken
+	}
+	if crfToken != "" {
+		h["X-CSRF-Token"] = crfToken
+	}
+}

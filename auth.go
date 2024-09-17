@@ -59,11 +59,11 @@ func (s *Scraper) LoginOpenAccount() error {
 
 // Logout is reset session
 func (s *Scraper) Logout() error {
-	req, err := http.NewRequest("POST", auth.LogoutURL, nil)
-	if err != nil {
-		return err
-	}
-	err = s.RequestAPI(req, nil)
+	//req, err := http.NewRequest("POST", auth.LogoutURL, nil)
+	//if err != nil {
+	//	return err
+	//}
+	err := s.RequestAPI("POST", auth.LogoutURL, nil, nil)
 	if err != nil {
 		return err
 	}

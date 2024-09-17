@@ -1,7 +1,6 @@
 package twitterscraper
 
 import (
-	"net/http"
 	"sync"
 	"time"
 
@@ -114,12 +113,12 @@ func (s *Scraper) SetProxy(proxyAddr string) error {
 func (s *Scraper) IsLoggedIn() bool {
 	s.isLogged = true
 	s.setBearerToken(BearerToken2)
-	req, err := http.NewRequest("GET", VerifyCredentialsURL, nil)
-	if err != nil {
-		return false
-	}
+	//req, err := http.NewRequest("GET", VerifyCredentialsURL, nil)
+	//if err != nil {
+	//	return false
+	//}
 	var verify types.VerifyCredentials
-	err = s.RequestAPI(req, &verify)
+	err := s.RequestAPI("GET", VerifyCredentialsURL, nil, &verify)
 	if err != nil || verify.Errors != nil {
 		s.isLogged = false
 		s.setBearerToken(BearerToken)

@@ -250,7 +250,7 @@ func getAccessToken(consumerKey, consumerSecret string) (string, error) {
 	client := httpwrap.NewClient()
 
 	var token types.Token
-	result, err := client.Post(OAuthURL, data, headers, token)
+	result, _, err := client.Post(OAuthURL, data, headers, token)
 	if err != nil {
 		return "", err
 	}
@@ -281,7 +281,7 @@ func getFlow(data map[string]interface{}, bearerToken, guestToken string) (*type
 	}
 	var info types.Flow
 	client := httpwrap.NewClient()
-	result, err := client.Post(LoginURL, data, headers, info)
+	result, _, err := client.Post(LoginURL, data, headers, info)
 	if err != nil {
 		return nil, err
 	}

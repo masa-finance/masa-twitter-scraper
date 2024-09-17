@@ -78,7 +78,7 @@ func (s *Scraper) FetchTweetsByUserID(userID string, maxTweetsNbr int, cursor st
 	req.URL.RawQuery = query.Encode()
 
 	var timeline timelineV2
-	err = s.RequestAPI(req, &timeline)
+	err = s.RequestAPI(req.Method, req.URL.String(), query, &timeline)
 	if err != nil {
 		return nil, "", err
 	}
@@ -107,7 +107,7 @@ func (s *Scraper) FetchTweetsByUserIDLegacy(userID string, maxTweetsNbr int, cur
 	req.URL.RawQuery = q.Encode()
 
 	var timeline timelineV1
-	err = s.RequestAPI(req, &timeline)
+	err = s.RequestAPI(req.Method, req.URL.String(), q, &timeline)
 	if err != nil {
 		return nil, "", err
 	}
@@ -125,7 +125,7 @@ func (s *Scraper) GetTweet(id string) (*Tweet, error) {
 		}
 
 		var timeline timelineV1
-		err = s.RequestAPI(req, &timeline)
+		err = s.RequestAPI(req.Method, req.URL.String(), nil, &timeline)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +189,7 @@ func (s *Scraper) GetTweet(id string) (*Tweet, error) {
 			s.setBearerToken(BearerToken2)
 		}
 
-		err = s.RequestAPI(req, &conversation)
+		err = s.RequestAPI(req.Method, req.URL.String(), nil, &conversation)
 
 		if curBearerToken != BearerToken2 {
 			s.setBearerToken(curBearerToken)

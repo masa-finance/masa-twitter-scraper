@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,10 +46,10 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 }
 
 // DoRequest sends an HTTP request with the given method, URL, body, and headers.
-func (c *Client) DoRequest(method, url string, bodyReader io.Reader, headers Header) (io.ReadCloser, error) {
+func (c *Client) DoRequest(method, url string, bodyReader io.Reader, headers Header) (io.ReadCloser, int, error) {
 	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
 	// Set headers
@@ -63,7 +64,7 @@ func (c *Client) DoRequest(method, url string, bodyReader io.Reader, headers Hea
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	if resp.StatusCode >= 300 {
 		defer func(Body io.ReadCloser) {
@@ -74,7 +75,7 @@ func (c *Client) DoRequest(method, url string, bodyReader io.Reader, headers Hea
 		}(resp.Body)
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("error reading response: %w", err)
+			return nil, -1, fmt.Errorf("error reading response: %w", err)
 		}
 		httpErr := HTTPError{
 			Status:     resp.Status,
@@ -83,14 +84,32 @@ func (c *Client) DoRequest(method, url string, bodyReader io.Reader, headers Hea
 			Err:        fmt.Errorf("HTTP %d: %s ", resp.StatusCode, http.StatusText(resp.StatusCode)),
 		}
 		httpErr.Log()
-		return nil, httpErr
+		return nil, -1, httpErr
 	}
-	return resp.Body, nil
+	limitCount := -1
+	if resp.Header.Get("X-Rate-Limit-Remaining") != "" {
+		//convert the string to an int
+		limitCount, err = strconv.Atoi(resp.Header.Get("X-Rate-Limit-Remaining"))
+		if err != nil {
+			limitCount = -1
+		}
+	}
+	return resp.Body, limitCount, nil
 }
 
 // Get sends an HTTP GET request.
-func (c *Client) Get(url string, headers map[string]string, obj any) (any, error) {
-	respBody, err := c.DoRequest(http.MethodGet, url, nil, headers)
+func (c *Client) Get(baseURL string, urlParams url.Values, headers map[string]string, obj any) (any, int, error) {
+	// Convert map[string]interface{} to url.Values
+	// Parse the base URL
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, -1, fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	// Set the query parameters
+	parsedURL.RawQuery = urlParams.Encode()
+
+	respBody, limitCount, err := c.DoRequest(http.MethodGet, parsedURL.String(), nil, headers)
 
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -99,31 +118,32 @@ func (c *Client) Get(url string, headers map[string]string, obj any) (any, error
 		}
 	}(respBody)
 	if err != nil {
-		return nil, err
+		return nil, limitCount, err
 	}
 	if obj == nil {
 		obj = make(map[string]interface{})
 	}
 	err = json.NewDecoder(respBody).Decode(&obj)
 	if err != nil {
-		return nil, err
+		return nil, limitCount, err
 	}
-	return obj, nil
+
+	return obj, limitCount, nil
 }
 
 // Post sends an HTTP POST request with a JSON body.
-func (c *Client) Post(url string, body interface{}, headers map[string]string, obj any) (any, error) {
+func (c *Client) Post(url string, body interface{}, headers map[string]string, obj any) (any, int, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		bodyBytes, err := json.Marshal(body)
 		if err != nil {
-			return nil, err
+			return nil, -1, err
 		}
 		bodyReader = bytes.NewBuffer(bodyBytes)
 	}
-	respBody, err := c.DoRequest(http.MethodPost, url, bodyReader, headers)
+	respBody, limitCount, err := c.DoRequest(http.MethodPost, url, bodyReader, headers)
 	if err != nil {
-		return nil, err
+		return nil, limitCount, err
 	}
 
 	defer func(Body io.ReadCloser) {
@@ -138,9 +158,9 @@ func (c *Client) Post(url string, body interface{}, headers map[string]string, o
 	}
 	err = json.NewDecoder(respBody).Decode(&obj)
 	if err != nil {
-		return nil, err
+		return nil, limitCount, err
 	}
-	return obj, nil
+	return obj, limitCount, nil
 }
 
 // SetTimeout sets the timeout for the singleton http.Client.
