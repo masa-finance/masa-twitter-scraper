@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (s *Scraper) getAccessToken(consumerKey, consumerSecret string) (string, error) {
@@ -67,13 +69,26 @@ func (s *Scraper) getFlow(data map[string]interface{}) (*flow, error) {
 
 	resp, err := s.client.Do(req)
 	if err != nil {
+		logrus.WithError(err).Error("Failed to execute request")
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var info flow
-	err = json.NewDecoder(resp.Body).Decode(&info)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		logrus.WithError(err).Error("Failed to read response body")
+		return nil, err
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"status_code": resp.StatusCode,
+		"body":        string(body),
+	}).Debug("Received response from Twitter API")
+
+	var info flow
+	err = json.Unmarshal(body, &info)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to unmarshal response body")
 		return nil, err
 	}
 
@@ -87,18 +102,21 @@ func (s *Scraper) getFlowToken(data map[string]interface{}) (string, error) {
 	}
 
 	if len(info.Errors) > 0 {
+		logrus.WithFields(logrus.Fields{
+			"error_code":    info.Errors[0].Code,
+			"error_message": info.Errors[0].Message,
+		}).Error("Auth error returned by Twitter API")
 		return "", fmt.Errorf("auth error (%d): %v", info.Errors[0].Code, info.Errors[0].Message)
 	}
 
 	if info.Subtasks != nil && len(info.Subtasks) > 0 {
-		if info.Subtasks[0].SubtaskID == "LoginEnterAlternateIdentifierSubtask" {
-			err = fmt.Errorf("auth error: %v", "LoginEnterAlternateIdentifierSubtask")
-		} else if info.Subtasks[0].SubtaskID == "LoginAcid" {
-			err = fmt.Errorf("auth error: %v", "LoginAcid")
-		} else if info.Subtasks[0].SubtaskID == "LoginTwoFactorAuthChallenge" {
-			err = fmt.Errorf("auth error: %v", "LoginTwoFactorAuthChallenge")
-		} else if info.Subtasks[0].SubtaskID == "DenyLoginSubtask" {
-			err = fmt.Errorf("auth error: %v", "DenyLoginSubtask")
+		subtaskID := info.Subtasks[0].SubtaskID
+		logrus.WithField("subtask_id", subtaskID).Debug("Received subtask from Twitter API")
+
+		switch subtaskID {
+		case "LoginEnterAlternateIdentifierSubtask", "LoginAcid", "LoginTwoFactorAuthChallenge", "DenyLoginSubtask":
+			err = fmt.Errorf("auth error: %v", subtaskID)
+			logrus.WithError(err).Error("Authentication failed")
 		}
 	}
 
@@ -146,6 +164,11 @@ func (s *Scraper) Login(credentials ...string) error {
 		return err
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"username":     username,
+		"confirmation": confirmation != "",
+	}).Info("Attempting to log in")
+
 	// flow start
 	data := map[string]interface{}{
 		"flow_name": "login",
@@ -158,6 +181,7 @@ func (s *Scraper) Login(credentials ...string) error {
 	}
 	flowToken, err := s.getFlowToken(data)
 	if err != nil {
+		logrus.WithError(err).Error("Failed to get initial flow token")
 		return err
 	}
 
@@ -226,6 +250,7 @@ func (s *Scraper) Login(credentials ...string) error {
 	}
 	flowToken, err = s.getFlowToken(data)
 	if err != nil {
+		logrus.WithError(err).Error("Error during account duplication check")
 		var confirmationSubtask string
 		for _, subtask := range []string{"LoginAcid", "LoginTwoFactorAuthChallenge"} {
 			if strings.Contains(err.Error(), subtask) {
@@ -235,6 +260,7 @@ func (s *Scraper) Login(credentials ...string) error {
 		}
 		if confirmationSubtask != "" {
 			if confirmation == "" {
+				logrus.WithField("subtask", confirmationSubtask).Error("Confirmation data required but not provided")
 				return fmt.Errorf("confirmation data required for %v", confirmationSubtask)
 			}
 			// flow confirmation
@@ -249,6 +275,7 @@ func (s *Scraper) Login(credentials ...string) error {
 			}
 			_, err = s.getFlowToken(data)
 			if err != nil {
+				logrus.WithError(err).Error("Failed to complete confirmation flow")
 				return err
 			}
 		} else {
@@ -258,6 +285,7 @@ func (s *Scraper) Login(credentials ...string) error {
 
 	s.isLogged = true
 	s.isOpenAccount = false
+	logrus.Info("Successfully logged in")
 	return nil
 }
 
