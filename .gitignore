@@ -2,3 +2,4 @@
 *.json
 .idea/
 .env
+.DS_Store
