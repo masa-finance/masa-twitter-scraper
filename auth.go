@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -145,6 +146,12 @@ func (s *Scraper) IsLoggedIn() bool {
 	return s.isLogged
 }
 
+// randomDelay introduces a random delay between 1 and 3 seconds
+func randomDelay() {
+	delay := time.Duration(3000+rand.Intn(5000)) * time.Millisecond
+	time.Sleep(delay)
+}
+
 // Login to Twitter
 // Use Login(username, password) for ordinary login
 // or Login(username, password, email) for login if you have email confirmation
@@ -183,6 +190,8 @@ func (s *Scraper) Login(credentials ...string) error {
 		"confirmation": confirmation != "",
 	}).Info("Attempting to log in")
 
+	randomDelay()
+
 	// flow start
 	data := map[string]interface{}{
 		"flow_name": "login",
@@ -199,6 +208,8 @@ func (s *Scraper) Login(credentials ...string) error {
 		return err
 	}
 
+	randomDelay()
+
 	// flow instrumentation step
 	data = map[string]interface{}{
 		"flow_token": flowToken,
@@ -213,6 +224,8 @@ func (s *Scraper) Login(credentials ...string) error {
 	if err != nil {
 		return err
 	}
+
+	randomDelay()
 
 	// flow username step
 	data = map[string]interface{}{
@@ -237,6 +250,8 @@ func (s *Scraper) Login(credentials ...string) error {
 		return err
 	}
 
+	randomDelay()
+
 	// flow password step
 	data = map[string]interface{}{
 		"flow_token": flowToken,
@@ -251,6 +266,8 @@ func (s *Scraper) Login(credentials ...string) error {
 	if err != nil {
 		return err
 	}
+
+	randomDelay()
 
 	// flow duplication check
 	data = map[string]interface{}{
@@ -277,6 +294,7 @@ func (s *Scraper) Login(credentials ...string) error {
 				logrus.WithField("subtask", confirmationSubtask).Error("Confirmation data required but not provided")
 				return fmt.Errorf("confirmation data required for %v", confirmationSubtask)
 			}
+			randomDelay()
 			// flow confirmation
 			data = map[string]interface{}{
 				"flow_token": flowToken,
@@ -296,6 +314,8 @@ func (s *Scraper) Login(credentials ...string) error {
 			return err
 		}
 	}
+
+	randomDelay()
 
 	s.isLogged = true
 	s.isOpenAccount = false
