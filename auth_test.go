@@ -41,13 +41,6 @@ func init() {
 		"email":        email,
 		"skipAuthTest": skipAuthTest,
 	}).Info("Environment variables loaded")
-
-	if username != "" && password != "" && !skipAuthTest {
-		err := testScraper.Login(username, password, email)
-		if err != nil {
-			logrus.WithError(err).Panic("Login failed")
-		}
-	}
 }
 
 func TestAuth(t *testing.T) {

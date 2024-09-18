@@ -67,6 +67,9 @@ func (s *Scraper) getFlow(data map[string]interface{}) (*flow, error) {
 	}
 	req.Header = headers
 
+	// Set CSRF token
+	s.setCSRFToken(req)
+
 	resp, err := s.client.Do(req)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to execute request")
@@ -157,9 +160,20 @@ func (s *Scraper) Login(credentials ...string) error {
 		confirmation = credentials[2]
 	}
 
+	// Initialize cookies by making a request to twitter.com
+	req, err := http.NewRequest("GET", "https://twitter.com/", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
 	s.setBearerToken(bearerToken2)
 
-	err := s.GetGuestToken()
+	err = s.GetGuestToken()
 	if err != nil {
 		return err
 	}
