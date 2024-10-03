@@ -1,6 +1,8 @@
 module github.com/masa-finance/masa-twitter-scraper
 
-go 1.16
+go 1.22
+
+toolchain go1.22.5
 
 require (
 	github.com/google/go-cmp v0.6.0
@@ -8,4 +10,9 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 	golang.org/x/net v0.28.0
+)
+
+require (
+	github.com/stretchr/testify v1.8.4 // indirect
+	golang.org/x/sys v0.24.0 // indirect
 )

@@ -461,3 +461,9 @@ func (s *Scraper) sign(method string, ref *url.URL) string {
 
 	return "OAuth " + b.String()
 }
+
+// SetHttpClient allows setting a custom HTTP client
+func (s *Scraper) SetHttpClient(client *http.Client) *Scraper {
+	s.client = client
+	return s
+}
