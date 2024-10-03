@@ -3,6 +3,7 @@ package twitterscraper_test
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -17,17 +18,11 @@ var (
 	password     string
 	email        string
 	skipAuthTest bool
-	testScraper  = twitterscraper.New()
 )
 
 func init() {
-	// Set log level to Debug
 	logrus.SetLevel(logrus.DebugLevel)
-
-	// Optionally, set a custom formatter
-	logrus.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
+	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
 	if err := godotenv.Load(); err != nil {
 		logrus.WithError(err).Warn("Error loading .env file")
@@ -51,32 +46,38 @@ func TestAuth(t *testing.T) {
 		t.Skip("Skipping test due to environment variable")
 	}
 
-	scraper := twitterscraper.New()
+	scraper := twitterscraper.New().SetHttpClient(getHTTPClientWithProxy())
 
-	// Add a short delay before login attempt
-	time.Sleep(2 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 
-	err := scraper.Login(username, password, email)
-	if err != nil {
+	if err := scraper.Login(username, password, email); err != nil {
 		t.Fatalf("Login() error = %v", err)
 	}
 
-	// Add a short delay after login attempt
-	time.Sleep(2 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 
 	if !scraper.IsLoggedIn() {
 		t.Fatalf("Expected IsLoggedIn() = true")
 	}
 
-	// Save cookies
 	cookies := scraper.GetCookies()
-	err = saveCookiesToFile(cookies, "twitter_cookies.json")
-	if err != nil {
+	if err := saveCookiesToFile(cookies, "twitter_cookies.json"); err != nil {
 		t.Fatalf("Failed to save cookies: %v", err)
 	}
 
-	// Log success
 	t.Log("Successfully logged in and saved cookies")
+}
+
+func getHTTPClientWithProxy() *http.Client {
+	proxyURL, err := url.Parse("http://sp7t5880k0:xv745uq1WpTI=veTrc@us.smartproxy.com:10001")
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to parse proxy URL")
+	}
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		},
+	}
 }
 
 func saveCookiesToFile(cookies []*http.Cookie, filename string) error {
@@ -86,6 +87,5 @@ func saveCookiesToFile(cookies []*http.Cookie, filename string) error {
 	}
 	defer file.Close()
 
-	encoder := json.NewEncoder(file)
-	return encoder.Encode(cookies)
+	return json.NewEncoder(file).Encode(cookies)
 }
