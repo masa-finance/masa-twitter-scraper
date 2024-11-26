@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
 )
 
-const searchURL = "https://twitter.com/i/api/graphql/MJpyQGqgklrVl_0X9gNy3A/SearchTimeline"
+const searchURL = "https://x.com/i/api/graphql/MJpyQGqgklrVl_0X9gNy3A/SearchTimeline"
 
 type searchTimeline struct {
 	Data struct {
@@ -89,28 +91,15 @@ func (s *Scraper) SearchProfiles(ctx context.Context, query string, maxProfilesN
 
 // getSearchTimeline gets results for a given search query, via the Twitter frontend API
 func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor string) (*searchTimeline, error) {
-	// First ensure we have valid guest token
-	if !s.IsGuestToken() {
-		if err := s.GetGuestToken(); err != nil {
-			return nil, err
-		}
-
-		// After getting guest token, we need to make an initial request to x.com
-		// to get the CSRF token cookie
-		initReq, err := http.NewRequest("GET", "https://x.com/", nil)
-		if err != nil {
-			return nil, err
-		}
-		initResp, err := s.getHTTPClient().Do(initReq)
-		if err != nil {
-			return nil, err
-		}
-		initResp.Body.Close()
-	}
-
-	req, err := http.NewRequest("GET", "https://x.com/i/api/graphql/MJpyQGqgklrVl_0X9gNy3A/SearchTimeline", nil)
+	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
 		return nil, err
+	}
+
+	// Debug: Log all cookies
+	logrus.Debug("Current cookies:")
+	for _, cookie := range s.client.Jar.Cookies(req.URL) {
+		logrus.Debugf("Cookie %s: %s", cookie.Name, cookie.Value)
 	}
 
 	// Set headers
@@ -121,6 +110,23 @@ func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor strin
 	req.Header.Set("x-twitter-client-language", "en")
 	req.Header.Set("accept", "*/*")
 	req.Header.Set("referer", "https://x.com/search?q="+url.QueryEscape(query)+"&src=typed_query")
+
+	// Set CSRF token from cookies
+	var csrfToken string
+	if cookies := s.client.Jar.Cookies(req.URL); len(cookies) > 0 {
+		for _, cookie := range cookies {
+			if cookie.Name == "ct0" {
+				csrfToken = cookie.Value
+				req.Header.Set("x-csrf-token", cookie.Value)
+				logrus.Debugf("Found and set CSRF token: %s", cookie.Value)
+				break
+			}
+		}
+	}
+
+	if csrfToken == "" {
+		logrus.Warn("No CSRF token found in cookies")
+	}
 
 	// Set variables
 	variables := map[string]interface{}{
@@ -165,16 +171,6 @@ func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor strin
 	q.Set("variables", mapToJSONString(variables))
 	q.Set("features", mapToJSONString(features))
 	req.URL.RawQuery = q.Encode()
-
-	// Set CSRF token from cookies
-	if cookies := s.client.Jar.Cookies(req.URL); len(cookies) > 0 {
-		for _, cookie := range cookies {
-			if cookie.Name == "ct0" {
-				req.Header.Set("x-csrf-token", cookie.Value)
-				break
-			}
-		}
-	}
 
 	var timeline searchTimeline
 	err = s.RequestAPI(req, &timeline)
