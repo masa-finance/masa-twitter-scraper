@@ -89,7 +89,7 @@ func (s *Scraper) SearchProfiles(ctx context.Context, query string, maxProfilesN
 
 // getSearchTimeline gets results for a given search query, via the Twitter frontend API
 func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor string) (*searchTimeline, error) {
-	req, err := http.NewRequest("GET", searchURL, nil)
+	req, err := http.NewRequest("GET", "https://x.com/i/api/graphql/MJpyQGqgklrVl_0X9gNy3A/SearchTimeline", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +100,8 @@ func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor strin
 	req.Header.Set("x-twitter-active-user", "yes")
 	req.Header.Set("x-twitter-auth-type", "OAuth2Session")
 	req.Header.Set("x-twitter-client-language", "en")
+	req.Header.Set("accept", "*/*")
+	req.Header.Set("referer", "https://x.com/search?q="+url.QueryEscape(query)+"&src=typed_query")
 
 	// Set variables
 	variables := map[string]interface{}{
