@@ -4,7 +4,7 @@ const (
 	loginURL             = "https://api.twitter.com/1.1/onboarding/task.json"
 	logoutURL            = "https://api.twitter.com/1.1/account/logout.json"
 	oAuthURL             = "https://api.twitter.com/oauth2/token"
-	verifyCredentialsURL = "https://api.twitter.com/1.1/account/verify_credentials.json"
+	verifyCredentialsURL = "https://api.twitter.com/1.1/account/settings.json"
 	bearerToken2         = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 	appConsumerKey       = "3nVuSoBZnx6U4vzUxf5w"
 	appConsumerSecret    = "Bcs59EFbbsdF6Sl9Ng71smgStWEGwXXKSjYvPVt7qys"
