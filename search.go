@@ -89,12 +89,31 @@ func (s *Scraper) SearchProfiles(ctx context.Context, query string, maxProfilesN
 
 // getSearchTimeline gets results for a given search query, via the Twitter frontend API
 func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor string) (*searchTimeline, error) {
+	// First ensure we have valid guest token
+	if !s.IsGuestToken() {
+		if err := s.GetGuestToken(); err != nil {
+			return nil, err
+		}
+
+		// After getting guest token, we need to make an initial request to x.com
+		// to get the CSRF token cookie
+		initReq, err := http.NewRequest("GET", "https://x.com/", nil)
+		if err != nil {
+			return nil, err
+		}
+		initResp, err := s.getHTTPClient().Do(initReq)
+		if err != nil {
+			return nil, err
+		}
+		initResp.Body.Close()
+	}
+
 	req, err := http.NewRequest("GET", "https://x.com/i/api/graphql/MJpyQGqgklrVl_0X9gNy3A/SearchTimeline", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set required headers
+	// Set headers
 	req.Header.Set("authorization", "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA")
 	req.Header.Set("content-type", "application/json")
 	req.Header.Set("x-twitter-active-user", "yes")
