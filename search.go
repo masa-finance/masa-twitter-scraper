@@ -96,10 +96,25 @@ func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor strin
 		return nil, err
 	}
 
-	// Debug: Log all cookies
-	logrus.Debug("Current cookies:")
-	for _, cookie := range s.client.Jar.Cookies(req.URL) {
-		logrus.Debugf("Cookie %s: %s", cookie.Name, cookie.Value)
+	// Check for cookies in both domains
+	var csrfToken string
+	for _, domain := range []string{"twitter.com", "x.com"} {
+		tempURL, _ := url.Parse("https://" + domain)
+		for _, cookie := range s.client.Jar.Cookies(tempURL) {
+			if cookie.Name == "ct0" {
+				csrfToken = cookie.Value
+				req.Header.Set("x-csrf-token", cookie.Value)
+				logrus.Debugf("Found CSRF token from %s: %s", domain, cookie.Value)
+				break
+			}
+		}
+		if csrfToken != "" {
+			break
+		}
+	}
+
+	if csrfToken == "" {
+		logrus.Warn("No CSRF token found in cookies for either domain")
 	}
 
 	// Set headers
@@ -110,23 +125,6 @@ func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor strin
 	req.Header.Set("x-twitter-client-language", "en")
 	req.Header.Set("accept", "*/*")
 	req.Header.Set("referer", "https://x.com/search?q="+url.QueryEscape(query)+"&src=typed_query")
-
-	// Set CSRF token from cookies
-	var csrfToken string
-	if cookies := s.client.Jar.Cookies(req.URL); len(cookies) > 0 {
-		for _, cookie := range cookies {
-			if cookie.Name == "ct0" {
-				csrfToken = cookie.Value
-				req.Header.Set("x-csrf-token", cookie.Value)
-				logrus.Debugf("Found and set CSRF token: %s", cookie.Value)
-				break
-			}
-		}
-	}
-
-	if csrfToken == "" {
-		logrus.Warn("No CSRF token found in cookies")
-	}
 
 	// Set variables
 	variables := map[string]interface{}{
