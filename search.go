@@ -91,20 +91,51 @@ func (s *Scraper) SearchProfiles(ctx context.Context, query string, maxProfilesN
 
 // getSearchTimeline gets results for a given search query, via the Twitter frontend API
 func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor string) (*searchTimeline, error) {
+	logrus.Debug("=== Starting search timeline request ===")
+	logrus.Debugf("Query: %s, MaxTweets: %d, Cursor: %s", query, maxTweetsNbr, cursor)
+
 	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
+		logrus.Errorf("Failed to create request: %v", err)
 		return nil, err
 	}
 
-	// Check for cookies in both domains
+	// Debug cookie jar state
+	logrus.Debug("=== Cookie Jar State ===")
+	for _, domain := range []string{"twitter.com", "x.com"} {
+		tempURL, _ := url.Parse("https://" + domain)
+
+		cookies := s.client.Jar.Cookies(tempURL)
+		logrus.Debugf("Cookies for %s:", domain)
+		for _, c := range cookies {
+			logrus.Debugf("  %s = %s (Domain: %s, Path: %s, Secure: %v, HttpOnly: %v)",
+				c.Name, c.Value, c.Domain, c.Path, c.Secure, c.HttpOnly)
+		}
+	}
+
+	// CSRF Token handling with detailed logging
+	logrus.Debug("=== CSRF Token Setup ===")
 	var csrfToken string
 	for _, domain := range []string{"twitter.com", "x.com"} {
 		tempURL, _ := url.Parse("https://" + domain)
 		for _, cookie := range s.client.Jar.Cookies(tempURL) {
 			if cookie.Name == "ct0" {
 				csrfToken = cookie.Value
+				logrus.Debugf("Found CSRF token in %s cookies: %s", domain, cookie.Value)
+
+				// Set headers
 				req.Header.Set("x-csrf-token", cookie.Value)
-				logrus.Debugf("Found CSRF token from %s: %s", domain, cookie.Value)
+				req.Header.Set("X-CSRF-Token", cookie.Value)
+				logrus.Debug("Set both x-csrf-token and X-CSRF-Token headers")
+
+				// Add cookie
+				newCookie := &http.Cookie{
+					Name:   "ct0",
+					Value:  cookie.Value,
+					Domain: "x.com",
+				}
+				req.AddCookie(newCookie)
+				logrus.Debugf("Added ct0 cookie to request: %+v", newCookie)
 				break
 			}
 		}
@@ -114,17 +145,43 @@ func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor strin
 	}
 
 	if csrfToken == "" {
-		logrus.Warn("No CSRF token found in cookies for either domain")
+		logrus.Warn("!!! No CSRF token found in any domain's cookies !!!")
 	}
 
-	// Set headers
-	req.Header.Set("authorization", "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA")
-	req.Header.Set("content-type", "application/json")
-	req.Header.Set("x-twitter-active-user", "yes")
-	req.Header.Set("x-twitter-auth-type", "OAuth2Session")
-	req.Header.Set("x-twitter-client-language", "en")
-	req.Header.Set("accept", "*/*")
-	req.Header.Set("referer", "https://x.com/search?q="+url.QueryEscape(query)+"&src=typed_query")
+	// Header setup with logging
+	logrus.Debug("=== Setting Request Headers ===")
+	headers := map[string]string{
+		"authority":                 "x.com",
+		"accept":                    "*/*",
+		"accept-language":           "en-GB,en-US;q=0.9,en;q=0.8",
+		"authorization":             "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
+		"content-type":              "application/json",
+		"x-twitter-active-user":     "yes",
+		"x-twitter-auth-type":       "OAuth2Session",
+		"x-twitter-client-language": "en",
+		"sec-fetch-dest":            "empty",
+		"sec-fetch-mode":            "cors",
+		"sec-fetch-site":            "same-origin",
+		"referer":                   "https://x.com/search?q=" + url.QueryEscape(query) + "&src=typed_query&f=top",
+	}
+
+	for key, value := range headers {
+		req.Header.Set(key, value)
+		logrus.Debugf("Set %s: %s", key, value)
+	}
+
+	// Final request state
+	logrus.Debug("=== Final Request State ===")
+	logrus.Debugf("URL: %s", req.URL.String())
+	logrus.Debugf("Method: %s", req.Method)
+	logrus.Debug("Headers:")
+	for key, values := range req.Header {
+		logrus.Debugf("  %s: %v", key, values)
+	}
+	logrus.Debug("Cookies:")
+	for _, cookie := range req.Cookies() {
+		logrus.Debugf("  %s: %s", cookie.Name, cookie.Value)
+	}
 
 	// Set variables
 	variables := map[string]interface{}{
