@@ -131,10 +131,29 @@ func (s *Scraper) getFlowToken(data map[string]interface{}) (string, error) {
 func (s *Scraper) IsLoggedIn() bool {
 	s.isLogged = true
 	s.setBearerToken(bearerToken2)
-	req, err := http.NewRequest("GET", verifyCredentialsURL, nil)
+	req, err := http.NewRequest("GET", verifyCredentialsURL+"?", nil)
 	if err != nil {
 		return false
 	}
+
+	// Add all required headers exactly as in the curl request
+	req.Header.Set("authority", "api.twitter.com")
+	req.Header.Set("accept", "*/*")
+	req.Header.Set("accept-language", "en-GB,en-US;q=0.9,en;q=0.8")
+	req.Header.Set("origin", "https://twitter.com")
+	req.Header.Set("referer", "https://twitter.com/")
+	req.Header.Set("sec-fetch-dest", "empty")
+	req.Header.Set("sec-fetch-mode", "cors")
+	req.Header.Set("sec-fetch-site", "same-site")
+	req.Header.Set("x-twitter-active-user", "yes")
+	req.Header.Set("x-twitter-auth-type", "OAuth2Session")
+	req.Header.Set("x-twitter-client-language", "en")
+
+	// The following headers will be automatically handled by the client:
+	// - authorization (set by setBearerToken)
+	// - cookie (handled by client.Jar)
+	// - x-csrf-token (set by setCSRFToken)
+
 	var verify verifyCredentials
 	err = s.RequestAPI(req, &verify)
 	if err != nil || verify.Errors != nil {
