@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-const searchURL = "https://twitter.com/i/api/graphql/nK1dw4oV3k4w5TdtcAdSww/SearchTimeline"
+const searchURL = "https://twitter.com/i/api/graphql/MJpyQGqgklrVl_0X9gNy3A/SearchTimeline"
 
 type searchTimeline struct {
 	Data struct {
@@ -102,6 +102,55 @@ func (s *Scraper) getSearchTimeline(query string, maxNbr int, cursor string) (*s
 		return nil, err
 	}
 
+	// Add all required headers
+	req.Header.Set("authority", "twitter.com")
+	req.Header.Set("accept", "*/*")
+	req.Header.Set("accept-language", "en-GB,en-US;q=0.9,en;q=0.8")
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("referer", "https://twitter.com/search?q="+url.QueryEscape(query)+"&src=typed_query&f=top")
+	req.Header.Set("sec-ch-ua", `"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"`)
+	req.Header.Set("sec-ch-ua-mobile", "?0")
+	req.Header.Set("sec-ch-ua-platform", "macOS")
+	req.Header.Set("sec-fetch-dest", "empty")
+	req.Header.Set("sec-fetch-mode", "cors")
+	req.Header.Set("sec-fetch-site", "same-origin")
+	req.Header.Set("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+	req.Header.Set("x-twitter-active-user", "yes")
+	req.Header.Set("x-twitter-auth-type", "OAuth2Session")
+	req.Header.Set("x-twitter-client-language", "en")
+
+	// Update features map with all required fields
+	features := map[string]interface{}{
+		"rweb_tipjar_consumption_enabled":                                         true,
+		"responsive_web_graphql_exclude_directive_enabled":                        true,
+		"verified_phone_label_enabled":                                            false,
+		"creator_subscriptions_tweet_preview_api_enabled":                         true,
+		"responsive_web_graphql_timeline_navigation_enabled":                      true,
+		"responsive_web_graphql_skip_user_profile_image_extensions_enabled":       false,
+		"communities_web_enable_tweet_community_results_fetch":                    true,
+		"c9s_tweet_anatomy_moderator_badge_enabled":                               true,
+		"articles_preview_enabled":                                                true,
+		"responsive_web_edit_tweet_api_enabled":                                   true,
+		"graphql_is_translatable_rweb_tweet_is_translatable_enabled":              true,
+		"view_counts_everywhere_api_enabled":                                      true,
+		"longform_notetweets_consumption_enabled":                                 true,
+		"responsive_web_twitter_article_tweet_consumption_enabled":                true,
+		"tweet_awards_web_tipping_enabled":                                        false,
+		"creator_subscriptions_quote_tweet_preview_enabled":                       false,
+		"freedom_of_speech_not_reach_fetch_enabled":                               true,
+		"standardized_nudges_misinfo":                                             true,
+		"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": true,
+		"rweb_video_timestamps_enabled":                                           true,
+		"longform_notetweets_rich_text_read_enabled":                              true,
+		"longform_notetweets_inline_media_enabled":                                true,
+		"responsive_web_enhance_cards_enabled":                                    false,
+	}
+
+	// Add fieldToggles map
+	fieldToggles := map[string]interface{}{
+		"withArticleRichContentState": false,
+	}
+
 	variables := map[string]interface{}{
 		"rawQuery":    query,
 		"count":       maxNbr,
@@ -109,47 +158,11 @@ func (s *Scraper) getSearchTimeline(query string, maxNbr int, cursor string) (*s
 		"product":     "Top",
 	}
 
-	features := map[string]interface{}{
-		"rweb_lists_timeline_redesign_enabled":                                    true,
-		"responsive_web_graphql_exclude_directive_enabled":                        true,
-		"verified_phone_label_enabled":                                            false,
-		"creator_subscriptions_tweet_preview_api_enabled":                         true,
-		"responsive_web_graphql_timeline_navigation_enabled":                      true,
-		"responsive_web_graphql_skip_user_profile_image_extensions_enabled":       false,
-		"tweetypie_unmention_optimization_enabled":                                true,
-		"responsive_web_edit_tweet_api_enabled":                                   true,
-		"graphql_is_translatable_rweb_tweet_is_translatable_enabled":              true,
-		"view_counts_everywhere_api_enabled":                                      true,
-		"longform_notetweets_consumption_enabled":                                 true,
-		"responsive_web_twitter_article_tweet_consumption_enabled":                false,
-		"tweet_awards_web_tipping_enabled":                                        false,
-		"freedom_of_speech_not_reach_fetch_enabled":                               true,
-		"standardized_nudges_misinfo":                                             true,
-		"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": true,
-		"longform_notetweets_rich_text_read_enabled":                              true,
-		"longform_notetweets_inline_media_enabled":                                true,
-		"responsive_web_media_download_video_enabled":                             false,
-		"responsive_web_enhance_cards_enabled":                                    false,
-	}
-
-	fieldToggles := map[string]interface{}{
-		"withArticleRichContentState": false,
-	}
-
 	if cursor != "" {
 		variables["cursor"] = cursor
 	}
-	switch s.searchMode {
-	case SearchLatest:
-		variables["product"] = "Latest"
-	case SearchPhotos:
-		variables["product"] = "Photos"
-	case SearchVideos:
-		variables["product"] = "Videos"
-	case SearchUsers:
-		variables["product"] = "People"
-	}
 
+	// Update query parameters to include fieldToggles
 	q := url.Values{}
 	q.Set("variables", mapToJSONString(variables))
 	q.Set("features", mapToJSONString(features))
