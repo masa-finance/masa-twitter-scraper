@@ -2,12 +2,12 @@ package twitterscraper
 
 import (
 	"context"
-	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 )
 
-const searchURL = "https://twitter.com/i/api/graphql/nK1dw4oV3k4w5TdtcAdSww/SearchTimeline"
+const searchURL = "https://twitter.com/i/api/graphql/MJpyQGqgklrVl_0X9gNy3A/SearchTimeline"
 
 type searchTimeline struct {
 	Data struct {
@@ -88,79 +88,79 @@ func (s *Scraper) SearchProfiles(ctx context.Context, query string, maxProfilesN
 }
 
 // getSearchTimeline gets results for a given search query, via the Twitter frontend API
-func (s *Scraper) getSearchTimeline(query string, maxNbr int, cursor string) (*searchTimeline, error) {
-	if !s.isLogged {
-		return nil, errors.New("scraper is not logged in for search")
-	}
-
-	if maxNbr > 50 {
-		maxNbr = 50
-	}
-
-	req, err := s.newRequest("GET", searchURL)
+func (s *Scraper) getSearchTimeline(query string, maxTweetsNbr int, cursor string) (*searchTimeline, error) {
+	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
+	// Set required headers
+	req.Header.Set("authorization", "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA")
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("x-twitter-active-user", "yes")
+	req.Header.Set("x-twitter-auth-type", "OAuth2Session")
+	req.Header.Set("x-twitter-client-language", "en")
+
+	// Set variables
 	variables := map[string]interface{}{
 		"rawQuery":    query,
-		"count":       maxNbr,
+		"count":       maxTweetsNbr,
 		"querySource": "typed_query",
 		"product":     "Top",
 	}
+	if cursor != "" {
+		variables["cursor"] = cursor
+	}
 
+	// Set features
 	features := map[string]interface{}{
-		"rweb_lists_timeline_redesign_enabled":                                    true,
+		"rweb_tipjar_consumption_enabled":                                         true,
 		"responsive_web_graphql_exclude_directive_enabled":                        true,
 		"verified_phone_label_enabled":                                            false,
 		"creator_subscriptions_tweet_preview_api_enabled":                         true,
 		"responsive_web_graphql_timeline_navigation_enabled":                      true,
 		"responsive_web_graphql_skip_user_profile_image_extensions_enabled":       false,
-		"tweetypie_unmention_optimization_enabled":                                true,
+		"communities_web_enable_tweet_community_results_fetch":                    true,
+		"c9s_tweet_anatomy_moderator_badge_enabled":                               true,
+		"articles_preview_enabled":                                                true,
 		"responsive_web_edit_tweet_api_enabled":                                   true,
 		"graphql_is_translatable_rweb_tweet_is_translatable_enabled":              true,
 		"view_counts_everywhere_api_enabled":                                      true,
 		"longform_notetweets_consumption_enabled":                                 true,
-		"responsive_web_twitter_article_tweet_consumption_enabled":                false,
+		"responsive_web_twitter_article_tweet_consumption_enabled":                true,
 		"tweet_awards_web_tipping_enabled":                                        false,
+		"creator_subscriptions_quote_tweet_preview_enabled":                       false,
 		"freedom_of_speech_not_reach_fetch_enabled":                               true,
 		"standardized_nudges_misinfo":                                             true,
 		"tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": true,
+		"rweb_video_timestamps_enabled":                                           true,
 		"longform_notetweets_rich_text_read_enabled":                              true,
 		"longform_notetweets_inline_media_enabled":                                true,
-		"responsive_web_media_download_video_enabled":                             false,
 		"responsive_web_enhance_cards_enabled":                                    false,
 	}
 
-	fieldToggles := map[string]interface{}{
-		"withArticleRichContentState": false,
-	}
-
-	if cursor != "" {
-		variables["cursor"] = cursor
-	}
-	switch s.searchMode {
-	case SearchLatest:
-		variables["product"] = "Latest"
-	case SearchPhotos:
-		variables["product"] = "Photos"
-	case SearchVideos:
-		variables["product"] = "Videos"
-	case SearchUsers:
-		variables["product"] = "People"
-	}
-
+	// Build query parameters
 	q := url.Values{}
 	q.Set("variables", mapToJSONString(variables))
 	q.Set("features", mapToJSONString(features))
-	q.Set("fieldToggles", mapToJSONString(fieldToggles))
 	req.URL.RawQuery = q.Encode()
+
+	// Set CSRF token from cookies
+	if cookies := s.client.Jar.Cookies(req.URL); len(cookies) > 0 {
+		for _, cookie := range cookies {
+			if cookie.Name == "ct0" {
+				req.Header.Set("x-csrf-token", cookie.Value)
+				break
+			}
+		}
+	}
 
 	var timeline searchTimeline
 	err = s.RequestAPI(req, &timeline)
 	if err != nil {
 		return nil, err
 	}
+
 	return &timeline, nil
 }
 
