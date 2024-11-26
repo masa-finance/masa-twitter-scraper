@@ -120,7 +120,7 @@ func (s *Scraper) handleResponse(resp *http.Response, target interface{}) error 
 
 // GetGuestToken from Twitter API
 func (s *Scraper) GetGuestToken() error {
-	req, err := http.NewRequest("POST", "https://api.twitter.com/1.1/guest/activate.json", nil)
+	req, err := http.NewRequest("POST", "https://x.com/i/api/1.1/guest/activate.json", nil)
 	if err != nil {
 		return err
 	}

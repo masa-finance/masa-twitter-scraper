@@ -168,7 +168,7 @@ func (s *Scraper) Login(credentials ...string) error {
 	}
 
 	// Initialize cookies by making a request to twitter.com
-	req, err := http.NewRequest("GET", "https://twitter.com/", nil)
+	req, err := http.NewRequest("GET", "https://x.com/", nil)
 	if err != nil {
 		return err
 	}
@@ -403,18 +403,39 @@ func (s *Scraper) Logout() error {
 
 func (s *Scraper) GetCookies() []*http.Cookie {
 	var cookies []*http.Cookie
-	for _, cookie := range s.client.Jar.Cookies(twURL) {
-		if strings.Contains(cookie.Name, "guest") {
-			continue
+
+	// Get cookies from both domains
+	for _, domain := range []string{"x.com"} {
+		tempURL, _ := url.Parse("https://" + domain)
+		domainCookies := s.client.Jar.Cookies(tempURL)
+
+		for _, cookie := range domainCookies {
+			// Set proper domain and other attributes
+			cookie.Domain = domain
+			cookie.Path = "/"
+			cookie.Secure = true
+
+			// Only include essential cookies
+			switch cookie.Name {
+			case "auth_token",
+				"ct0",
+				"twid",
+				"kdt",
+				"personalization_id",
+				"guest_id",
+				"guest_id_marketing",
+				"guest_id_ads":
+				cookies = append(cookies, cookie)
+			}
 		}
-		cookie.Domain = twURL.Host
-		cookies = append(cookies, cookie)
 	}
+
 	return cookies
 }
 
 func (s *Scraper) SetCookies(cookies []*http.Cookie) {
-	s.client.Jar.SetCookies(twURL, cookies)
+	xURL, _ := url.Parse("https://x.com")
+	s.client.Jar.SetCookies(xURL, cookies)
 }
 
 func (s *Scraper) ClearCookies() {
